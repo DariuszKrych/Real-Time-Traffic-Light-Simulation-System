@@ -18,12 +18,17 @@ Nathan Micallef
 ## Environment Setup Details
 Conda lock has been used to ensure identical frozen versions of libraries are used by everyone
 to ensure no environment incompatibilities arise in the future.  
-The conda lock was created with `conda-lock -f environment.yml -p win-64 -p linux-64 -p osx-64 -p osx-arm64` on 24/02/2026.  
+The conda lock was created with `conda-lock -f environment.yml -p win-64 -p linux-64 -p osx-64 -p osx-arm64` on 24/02/2026.
+
+The PySDL3 wrapper allows usage of the sdl3 library for C++ in Python.
 
 The `environment.yml` which was used is:  
 name: CIS2108_GAPT_Env  
 channels:  
-&nbsp;&nbsp;&nbsp;\- conda-forge  
+&nbsp;&nbsp;\- conda-forge  
 dependencies:  
-&nbsp;&nbsp;&nbsp;\- python=3.12  
-&nbsp;&nbsp;&nbsp;\- sdl3
+&nbsp;&nbsp;\- python=3.12  
+&nbsp;&nbsp;\- sdl3  
+&nbsp;&nbsp;\- pip  
+&nbsp;&nbsp;\- pip:  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- PySDL3
