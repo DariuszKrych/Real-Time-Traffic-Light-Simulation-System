@@ -12,8 +12,9 @@ Nathan Micallef
 ## Environment Setup
 1. Download the `conda-lock.yml` from the repo.  
 2. Go into the terminal/conda terminal.
-3. Go to the directory where the `conda-lock.yml` file is.  
-4. run `conda-lock install --name GAPT_Env conda-lock.yml` to create the environment.
+3. Run `conda install -c conda-forge conda-lock`
+4. Go to the directory where the `conda-lock.yml` file is.  
+5. run `conda-lock install --name GAPT_Env conda-lock.yml` to create the environment.
 
 ## Environment Setup Details
 Conda lock has been used to ensure identical frozen versions of libraries are used by everyone
