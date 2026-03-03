@@ -40,6 +40,8 @@ def main():
     sdl3.SDL_DestroyWindow(window)
     sdl3.SDL_Quit()
 
+    # This is a funny test line for Nath.
+
 
 if __name__ == "__main__":
     main()
