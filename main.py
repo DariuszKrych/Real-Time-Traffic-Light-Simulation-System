@@ -13,6 +13,9 @@ def main():
     camera_x, camera_y,camera_speed = 0, 0, 5
     zoom, min_zoom, max_zoom, zoom_speed = 1.0, 0.5, 2.0, 0.01
 
+    # Enables alpha values for colour transparency when drawing
+    sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
+
     event = sdl3.SDL_Event()
     running = True
 

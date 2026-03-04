@@ -1,5 +1,7 @@
 import ctypes
 import sdl3
+import math
+
 
 def create_window():
     sdl3.SDL_Init(sdl3.SDL_INIT_VIDEO | sdl3.SDL_INIT_EVENTS)
@@ -59,6 +61,31 @@ def create_junction_renderer(window_dimensions):
         rect = sdl3.SDL_FRect(scaled_x, scaled_y, scaled_w, scaled_h)
         sdl3.SDL_RenderFillRect(renderer, ctypes.byref(rect))
 
+    def draw_circle(renderer, center_x, center_y, radius, camera_x, camera_y, zoom):
+        # Translate world coordinates by camera offset
+        translated_center_x = center_x - camera_x
+        translated_center_y = center_y - camera_y
+        # Scale by zoom to get screen coordinates
+        screen_center_x = translated_center_x * zoom
+        screen_center_y = translated_center_y * zoom
+        screen_radius = radius * zoom
+        # Loop over screen Y pixels that fall inside the circle's bounding box
+        y_start = int(screen_center_y - screen_radius)
+        y_end = int(screen_center_y + screen_radius)
+
+        for screen_y in range(y_start, y_end + 1):
+            dy = screen_y - screen_center_y
+            if abs(dy) > screen_radius:
+                continue
+            # Half-width of the circle at this screen Y
+            dx = int(math.sqrt(screen_radius * screen_radius - dy * dy))
+            x1 = int(screen_center_x - dx)
+            x2 = int(screen_center_x + dx)
+
+            # Draw a horizontal line (screen_y is same for both endpoints)
+            sdl3.SDL_RenderLine(renderer, x1, screen_y, x2, screen_y)
+
+
     def draw_dotted_lines(renderer, camera_x, camera_y, zoom):
         # West approach (left side of horizontal road)
         start_x = cx - road_length / 2
@@ -117,6 +144,84 @@ def create_junction_renderer(window_dimensions):
         west_y = cy - road_width / 2
         draw_rectangle(renderer, west_x, west_y, lane_line_thickness, line_length, camera_x, camera_y, zoom)
 
+    def draw_traffic_lights(renderer, camera_x, camera_y, zoom,  light_state):
+        pole_length, pole_thickness, gap_to_mid_sq, light_radius, light_gap = 130, 50, 30, 15, 10
+        half_rd_width = road_width / 2
+
+        west_light_state = light_state[0]
+        east_light_state = light_state[1]
+        south_light_state = light_state[2]
+        north_light_state = light_state[3]
+
+        # West traffic light
+        x_pos, y_pos = cx - half_rd_width - pole_length - gap_to_mid_sq, cy - half_rd_width - pole_thickness - gap_to_mid_sq
+        sdl3.SDL_SetRenderDrawColor(renderer, 38, 40, 43, 255)  # Dark Grey
+        draw_rectangle(renderer, x_pos, y_pos, pole_length, pole_thickness, camera_x, camera_y, zoom)
+            # green light
+        x_pos, y_pos = x_pos + light_gap + light_radius, y_pos + light_gap + light_radius
+        sdl3.SDL_SetRenderDrawColor(renderer, 87, 150, 92, west_light_state[0])  # Green
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # orange light
+        x_pos = x_pos + light_gap + light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 203, 128, 77, west_light_state[1]) # Orange
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # red light
+        x_pos = x_pos + light_gap + light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 201, 79, 79, west_light_state[2])  # Red
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+
+        # East traffic light
+        x_pos, y_pos = cx + half_rd_width + gap_to_mid_sq, cy + half_rd_width + gap_to_mid_sq
+        sdl3.SDL_SetRenderDrawColor(renderer, 38, 40, 43, 255)  # Dark Grey
+        draw_rectangle(renderer, x_pos, y_pos, pole_length, pole_thickness, camera_x, camera_y, zoom)
+            # green light
+        x_pos, y_pos = x_pos + pole_length - light_gap - light_radius, y_pos + light_gap + light_radius
+        sdl3.SDL_SetRenderDrawColor(renderer, 87, 150, 92, east_light_state[0])  # Green
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # orange light
+        x_pos = x_pos - light_gap - light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 203, 128, 77, east_light_state[1]) # Orange
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # red light
+        x_pos = x_pos - light_gap - light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 201, 79, 79, east_light_state[2])  # Red
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+
+        # South traffic light
+        x_pos, y_pos = cx - half_rd_width - pole_thickness - gap_to_mid_sq, cy + half_rd_width + gap_to_mid_sq
+        sdl3.SDL_SetRenderDrawColor(renderer, 38, 40, 43, 255)  # Dark Grey
+        draw_rectangle(renderer, x_pos, y_pos, pole_thickness, pole_length, camera_x, camera_y, zoom)
+            # green light
+        x_pos, y_pos = x_pos + light_gap + light_radius, y_pos + pole_length - light_gap - light_radius
+        sdl3.SDL_SetRenderDrawColor(renderer, 87, 150, 92, south_light_state[0])  # Green
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # orange light
+        y_pos = y_pos - light_gap - light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 203, 128, 77, south_light_state[1]) # Orange
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # red light
+        y_pos = y_pos - light_gap - light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 201, 79, 79, south_light_state[2])  # Red
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+
+        # North traffic light
+        x_pos, y_pos = cx + half_rd_width + gap_to_mid_sq, cy - half_rd_width - pole_length - gap_to_mid_sq
+        sdl3.SDL_SetRenderDrawColor(renderer, 38, 40, 43, 255)  # Dark Grey
+        draw_rectangle(renderer, x_pos, y_pos, pole_thickness, pole_length, camera_x, camera_y, zoom)
+            # green light
+        x_pos, y_pos = x_pos + light_gap + light_radius, y_pos + light_gap + light_radius
+        sdl3.SDL_SetRenderDrawColor(renderer, 87, 150, 92, north_light_state[0])  # Green
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # orange light
+        y_pos = y_pos + light_gap + light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 203, 128, 77, north_light_state[1]) # Orange
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+            # red light
+        y_pos = y_pos + light_gap + light_radius*2
+        sdl3.SDL_SetRenderDrawColor(renderer, 201, 79, 79, north_light_state[2])  # Red
+        draw_circle(renderer, x_pos, y_pos, light_radius, camera_x, camera_y, zoom)
+
+
     # ---- main drawing function (returned) ----
     def draw_scene(renderer, camera_x, camera_y, zoom):
         # Drawing background colour
@@ -135,6 +240,14 @@ def create_junction_renderer(window_dimensions):
         draw_dotted_lines(renderer, camera_x, camera_y, zoom)
         # Drawing stop lines
         draw_stop_lines(renderer, camera_x, camera_y, zoom)
+        # Drawing traffic lights
+        current_light_state = [[255, 75, 75],[255, 75, 75],[255, 75, 75],[255, 75, 75]]
+        draw_traffic_lights(renderer, camera_x, camera_y, zoom, current_light_state)
+
+        # # Testing drawing a circle
+        # draw_circle(renderer, 300, 300, 50, camera_x, camera_y, zoom)
+        # sdl3.SDL_SetRenderDrawColor(renderer, 20, 20, 200, 255)
+        # draw_circle(renderer, cx+100, cy+100, 95, camera_x, camera_y, zoom)
 
         # Present the frame to the window
         sdl3.SDL_RenderPresent(renderer)
