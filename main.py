@@ -3,6 +3,7 @@ from light_logic import change_street_light_colour
 from car_logic import change_states_of_cars
 import sdl3
 import ctypes
+import math
 
 def main():
     window_dimensions, window, renderer = create_window()
@@ -17,6 +18,11 @@ def main():
 
     # Enables alpha values for colour transparency when drawing
     sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
+
+    framerate = 60
+    frametime_sec = 1 / framerate
+    frametime_msec = math.floor(1000/ framerate)
+    global_time = 0
 
     event = sdl3.SDL_Event()
     running = True
@@ -36,14 +42,15 @@ def main():
         )
 
         # Check the current street light colour and pass it to be drawn. FOR CHRIS
-        street_light_state = change_street_light_colour()
+        street_light_state = change_street_light_colour(global_time)
         # Check the current cars states. FOR JUSTIN
-        cars_states = change_states_of_cars()
+        cars_states = change_states_of_cars(global_time)
         # Draw the junction with current camera, zoom and street light colour.
         draw_scene(renderer, camera_x, camera_y, zoom, street_light_state, cars_states)
 
         # Simple delay to maintain ~60 FPS (16ms per frame)
-        sdl3.SDL_Delay(16)
+        sdl3.SDL_Delay(frametime_msec)
+        global_time += frametime_sec
 
     # Clean up resources
     sdl3.SDL_DestroyRenderer(renderer)
