@@ -20,6 +20,13 @@ def change_states_of_cars(current_time):
 
     # Some example code for moving the cars as a starting point for ideas from Dariusz for Justin.
     speed = 300  # Pixels per second
+    
+    # CAR 0 - Added to the cars coming from the right.
+    black_delay = 3.7
+    black_x = 610
+    if current_time > black_delay:
+        black_x -= speed * (current_time - black_delay)
+    black_car = [black_x,50,0,[0,0,100,255]]
 
     # CAR 1: LIGHT BLUE
     # Drives left immediately
@@ -79,6 +86,6 @@ def change_states_of_cars(current_time):
 
     grey_car = [grey_x, grey_y, grey_rotation, [100, 100, 100, 255]]
 
-    current_cars = [blue_car, orange_car, grey_car]
+    current_cars = [black_car,blue_car, orange_car, grey_car]
 
     return current_cars
