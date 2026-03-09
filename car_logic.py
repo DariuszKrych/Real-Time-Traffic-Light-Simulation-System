@@ -23,19 +23,23 @@ def change_states_of_cars(current_time):
 
     # CAR 1: LIGHT BLUE
     # Drives left immediately
+    #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     blue_delay = 2.7
     blue_x = 230
     if current_time > blue_delay:
         blue_x -= speed * (current_time - blue_delay)
     blue_car = [blue_x, 50, 0, [136, 213, 229, 255]]
+    #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
     # CAR 2: ORANGE
     # Starts driving after a 2-second delay
+    #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     orange_delay = 3.2
     orange_x = 420
     if current_time > orange_delay:
         orange_x -= speed * (current_time - orange_delay)
     orange_car = [orange_x, 50, 0, [241, 112, 35, 255]]
+    #=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
     # CAR 3: GREY
     # Initial State
