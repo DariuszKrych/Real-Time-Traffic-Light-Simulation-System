@@ -43,6 +43,7 @@ def main():
 
         # Check the current street light colour and pass it to be drawn. FOR CHRIS
         street_light_state = change_street_light_colour(global_time)
+        
         # Check the current cars states. FOR JUSTIN
         cars_states = change_states_of_cars(global_time)
         # Draw the junction with current camera, zoom and street light colour.
