@@ -4,7 +4,7 @@ import math
 def change_states_of_cars(current_time):
     # Notes on setting cars up for Justin from Dariusz.
     # current cars = [car, car, car, car] list of cars where every entry is a car
-    # where, car = [car_x_pos, car_y_pos, car_rotation, car_rgba]
+    # where, car = [car_body_type, car_x_pos, car_y_pos, car_rotation, car_rgba_colour]
     # 0,0 is the center of the world.
     # Relative to 0,0. Up: -y, Down: +y, Right: +x, Left: -x
     # The road is 200 wide and lanes are 100 wide which is why +-50 centers the cars on them.
@@ -12,9 +12,9 @@ def change_states_of_cars(current_time):
     # rgba is how the car's colour is set, the below examples being light blue, orange and grey respectively.
     # Example:
     # current_cars = [
-    #     [+230, +50, 0, [136, 213, 229, 255]],
-    #     [+420, +50, 0, [241, 112, 35, 255]],
-    #     [+50, -230, 270, [100, 100, 100, 255]],
+    #     ['car_body_1', +230, +50, 0, [136, 213, 229, 255]],
+    #     ['car_body_2', +420, +50, 0, [241, 112, 35, 255]],
+    #     ['car_body_1', +50, -230, 270, [100, 100, 100, 255]],
     # ]
 
 
@@ -27,7 +27,7 @@ def change_states_of_cars(current_time):
     blue_x = 230
     if current_time > blue_delay:
         blue_x -= speed * (current_time - blue_delay)
-    blue_car = [blue_x, 50, 0, [136, 213, 229, 255]]
+    blue_car = ['car_body_1', blue_x, 50, 0, [136, 213, 229, 255]]
 
     # CAR 2: ORANGE
     # Starts driving after a 2-second delay
@@ -35,7 +35,7 @@ def change_states_of_cars(current_time):
     orange_x = 420
     if current_time > orange_delay:
         orange_x -= speed * (current_time - orange_delay)
-    orange_car = [orange_x, 50, 0, [241, 112, 35, 255]]
+    orange_car = ['car_body_2', orange_x, 50, 0, [241, 112, 35, 255]]
 
     # CAR 3: GREY
     # Initial State
@@ -73,7 +73,7 @@ def change_states_of_cars(current_time):
         dist_after_turn = speed * (current_time - t_turn_end)
         grey_x = 0 - dist_after_turn
 
-    grey_car = [grey_x, grey_y, grey_rotation, [100, 100, 100, 255]]
+    grey_car = ['car_body_1', grey_x, grey_y, grey_rotation, [100, 100, 100, 255]]
 
     current_cars = [blue_car, orange_car, grey_car]
 
