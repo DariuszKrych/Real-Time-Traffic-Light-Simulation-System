@@ -1,4 +1,7 @@
-def change_street_light_colour(current_time):
+import sdl3
+
+
+def change_street_light_colour(keys, current_time):
     # Notes on changing street lights for Chris from Dariusz.
     # current_street_light_colour = [west_light, east_light, south_light, north_light]
     # where west_light, east_light, south_light and north_light can be:
@@ -16,18 +19,27 @@ def change_street_light_colour(current_time):
     south_light = 'red'
     north_light = 'red'
 
-    if cycle_time < 2.5:
-        # 0-10 seconds: North Green
+    if keys[sdl3.SDL_SCANCODE_1]:
         north_light = 'green'
-    elif cycle_time < 5:
-        # 10-20 seconds: East Green
+    if keys[sdl3.SDL_SCANCODE_2]:
         east_light = 'green'
-    elif cycle_time < 7.5:
-        # 20-30 seconds: South Green
+    if keys[sdl3.SDL_SCANCODE_3]:
         south_light = 'green'
-    else:
-        # 30-40 seconds: West Green
+    if keys[sdl3.SDL_SCANCODE_4]:
         west_light = 'green'
+
+    # if cycle_time < 2.5:
+    #     # 0-10 seconds: North Green
+    #     north_light = 'green'
+    # elif cycle_time < 5:
+    #     # 10-20 seconds: East Green
+    #     east_light = 'green'
+    # elif cycle_time < 7.5:
+    #     # 20-30 seconds: South Green
+    #     south_light = 'green'
+    # else:
+    #     # 30-40 seconds: West Green
+    #     west_light = 'green'
 
     current_street_light_colour = [west_light, east_light, south_light, north_light]
 

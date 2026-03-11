@@ -348,11 +348,11 @@ def create_junction_renderer(window_dimensions):
                     [16, 116], [16, 118], [16, 127]
                 ]
                 window_front = [
-                    [55, 99],  # Front Center
+                    [55, 99],
                     [55, 91], [56, 84], [57, 78], [58, 74], [59, 71], [61, 69],
                     [70, 72], [77, 74], [84, 77],
                     [83, 82], [83, 90], [82, 96],
-                    [82, 99],  # Back Center
+                    [82, 99],
                     [82, 102], [83, 108], [83, 116],
                     [84, 121], [77, 124], [70, 126],
                     [61, 129], [59, 127], [58, 124], [57, 120], [56, 114], [55, 107]
@@ -383,7 +383,6 @@ def create_junction_renderer(window_dimensions):
                 # The center of the car body polygon coordinates
                 local_center_x, local_center_y = 90.8, 98.8
             case 'car_body_3':
-                # Resized to match car_body_1 scale (~0.37x)
                 car_body = [
                     [23, 75], [33, 73], [53, 73], [61, 75], [66, 75], [72, 71],
                     [74, 71], [72, 75], [100, 75], [103, 73], [108, 74], [109, 75],
@@ -422,9 +421,8 @@ def create_junction_renderer(window_dimensions):
                 brakelight_left = [
                     [175, 91], [174, 86], [172, 82], [166, 80], [166, 80], [172, 86], [174, 90], [175, 91]
                 ]
-
                 # Adjusted local center based on the new scale
-                local_center_x, local_center_y = 37.4, 40.8
+                local_center_x, local_center_y = 91.0, 109.5
                 pass
 
 

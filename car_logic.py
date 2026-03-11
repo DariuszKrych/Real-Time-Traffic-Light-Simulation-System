@@ -27,7 +27,7 @@ def change_states_of_cars(current_time):
     blue_x = 230
     if current_time > blue_delay:
         blue_x -= speed * (current_time - blue_delay)
-    blue_car = ['car_body_1', blue_x, 50, 0, [136, 213, 229, 255]]
+    blue_car = ['car_body_3', blue_x, 50, 0, [136, 213, 229, 255]]
 
     # CAR 2: ORANGE
     # Starts driving after a 2-second delay
