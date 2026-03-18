@@ -25,14 +25,14 @@ def N_Street_Path_1(drive_time, speed, start_y, turn_start_y):
         # Center of the turn is shifted so we start exactly at x=50, y=0
         # X gets larger (curving East), Y continues downwards
         car_x = 100 - (50 * math.cos(angle_rad))
-        car_y = 50 * math.sin(angle_rad)
+        car_y = -50 * math.sin(angle_rad)
         
         # Subtracting instead of adding so rotation turns from 270 (South) to 180 (East)
         car_rotation = 270 - (90 * rel_progress)
         
     else:
         # Phase 3: Driving off (Heading East)
-        car_y = 50
+        car_y = -50 # Right Road
         car_rotation = 180 
         dist_after_turn = speed * (drive_time - t_turn_end)
         
