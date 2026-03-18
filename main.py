@@ -45,7 +45,7 @@ def main():
         street_light_state = change_street_light_colour(keys, global_time)
         
         # Check the current cars states. FOR JUSTIN
-        cars_states = change_states_of_cars(global_time)
+        cars_states = change_states_of_cars(global_time, street_light_state)
         # Draw the junction with current camera, zoom and street light colour.
         draw_scene(renderer, camera_x, camera_y, zoom, street_light_state, cars_states)
 

@@ -6,8 +6,8 @@ import math
 def create_window():
     sdl3.SDL_Init(sdl3.SDL_INIT_VIDEO | sdl3.SDL_INIT_EVENTS)
 
-    window_dimensions = [1920, 1080]
-    #window_dimensions = [1280,720]
+    #window_dimensions = [1920, 1080]
+    window_dimensions = [1280,720]
     window_title = b"Traffic light simulation"
     window = sdl3.SDL_CreateWindow(window_title, window_dimensions[0], window_dimensions[1], 0)
 

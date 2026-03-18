@@ -1,80 +1,137 @@
 import math
+import random # Using standard Python random is a bit cleaner here than numpy!
 
-
-def change_states_of_cars(current_time):
-    # Notes on setting cars up for Justin from Dariusz.
-    # current cars = [car, car, car, car] list of cars where every entry is a car
-    # where, car = [car_body_type, car_x_pos, car_y_pos, car_rotation, car_rgba_colour]
-    # 0,0 is the center of the world.
-    # Relative to 0,0. Up: -y, Down: +y, Right: +x, Left: -x
-    # The road is 200 wide and lanes are 100 wide which is why +-50 centers the cars on them.
-    # The car is facing left by default and rotation is in degrees clockwise.
-    # rgba is how the car's colour is set, the below examples being light blue, orange and grey respectively.
-    # Example:
-    # current_cars = [
-    #     ['car_body_1', +230, +50, 0, [136, 213, 229, 255]],
-    #     ['car_body_2', +420, +50, 0, [241, 112, 35, 255]],
-    #     ['car_body_1', +50, -230, 270, [100, 100, 100, 255]],
-    # ]
-
-
-    # Some example code for moving the cars as a starting point for ideas from Dariusz for Justin.
-    speed = 300  # Pixels per second
-
-    # CAR 1: LIGHT BLUE
-    # Drives left immediately
-    blue_delay = 2.7
-    blue_x = 230
-    if current_time > blue_delay:
-        blue_x -= speed * (current_time - blue_delay)
-    blue_car = ['car_body_3', blue_x, 50, 0, [136, 213, 229, 255]]
-
-    # CAR 2: ORANGE
-    # Starts driving after a 2-second delay
-    orange_delay = 3.2
-    orange_x = 420
-    if current_time > orange_delay:
-        orange_x -= speed * (current_time - orange_delay)
-    orange_car = ['car_body_2', orange_x, 50, 0, [241, 112, 35, 255]]
-
-    # CAR 3: GREY
-    # Initial State
-    grey_x, grey_y, grey_rotation = 50, -230, 270
-
-    # Phase 1: Straight down to the start of the junction (y=0)
-    # Time to reach y=0: distance(230) / speed
-    t_turn_start = 230 / speed
-
-    # Phase 2: The Turn (A 90-degree arc with radius 50)
-    # The arc length is (PI/2)*50 ≈ 78.5 pixels.
+# --- PATH FUNCTIONS ---
+def N_Street_Path_1(drive_time, speed, start_y, turn_start_y):
+    """Calculates the x, y, and rotation for a car turning LEFT (East) from the North street."""
+    distance_to_curve = abs(turn_start_y - start_y) 
+    t_to_curve = distance_to_curve / speed
+    
     t_turn_duration = (math.pi * 50 / 2) / speed
-    t_turn_end = t_turn_start + t_turn_duration
+    t_turn_end = t_to_curve + t_turn_duration
 
-    if current_time < t_turn_start:
-        # Just driving south
-        grey_y = -230 + (speed * current_time)
-
-    elif current_time < t_turn_end:
-        # The Smooth Turn
-        # Calculate progress through turn (0.0 to 1.0)
-        progress = (current_time - t_turn_start) / t_turn_duration
-        angle_rad = (math.pi / 2) * progress
-
-        # Move along arc centered at (0, 0) with radius 50
-        grey_x = 50 * math.cos(angle_rad)
-        grey_y = 50 * math.sin(angle_rad)
-        # Rotate from 270 to 360
-        grey_rotation = 270 + (90 * progress)
-
+    if drive_time < t_to_curve:
+        # Phase 1: Straight to the curve
+        car_y = start_y + (speed * drive_time)
+        car_x = 50
+        car_rotation = 270
+        
+    elif drive_time < t_turn_end:
+        # Phase 2: The Turn (Flipped for a Left Turn)
+        # Fixed rel_progress so it correctly counts up from 0.0 to 1.0
+        rel_progress = (drive_time - t_to_curve) / t_turn_duration
+        angle_rad = (math.pi / 2) * rel_progress
+        
+        # Center of the turn is shifted so we start exactly at x=50, y=0
+        # X gets larger (curving East), Y continues downwards
+        car_x = 100 - (50 * math.cos(angle_rad))
+        car_y = 50 * math.sin(angle_rad)
+        
+        # Subtracting instead of adding so rotation turns from 270 (South) to 180 (East)
+        car_rotation = 270 - (90 * rel_progress)
+        
     else:
-        # Phase 3: Driving off to the left
-        grey_y = 50
-        grey_rotation = 0  # 360 deg = 0 deg
-        dist_after_turn = speed * (current_time - t_turn_end)
-        grey_x = 0 - dist_after_turn
+        # Phase 3: Driving off (Heading East)
+        car_y = 50
+        car_rotation = 180 
+        dist_after_turn = speed * (drive_time - t_turn_end)
+        
+        # Moving right (+x), so we ADD the distance instead of subtracting
+        car_x = 100 + dist_after_turn
+        
+    return car_x, car_y, car_rotation
 
+def N_Street_Path_2(drive_time, speed, start_y, turn_start_y):
+    # Straight path
+    car_y = start_y + (speed * drive_time)
+    car_x = 50
+    car_rotation = 270
+    return car_x, car_y, car_rotation
+
+def N_Street_Path_3(drive_time, speed, start_y, turn_start_y):
+    """Calculates the x, y, and rotation for a car turning from the North street."""
+    distance_to_curve = abs(turn_start_y - start_y) 
+    t_to_curve = distance_to_curve / speed
+    
+    t_turn_duration = (math.pi * 50 / 2) / speed
+    t_turn_end = t_to_curve + t_turn_duration
+
+    if drive_time < t_to_curve:
+        # Phase 1: Straight to the curve
+        car_y = start_y + (speed * drive_time)
+        car_x = 50
+        car_rotation = 270
+        
+    elif drive_time < t_turn_end:
+        # Phase 2: The Turn
+        rel_progress = (drive_time - t_to_curve) / t_turn_duration
+        angle_rad = (math.pi / 2) * rel_progress
+        car_x = 50 * math.cos(angle_rad)
+        car_y = 50 * math.sin(angle_rad)
+        car_rotation = 270 + (90 * rel_progress)
+        
+    else:
+        # Phase 3: Driving off
+        car_y = 50
+        car_rotation = 0 
+        dist_after_turn = speed * (drive_time - t_turn_end)
+        car_x = 0 - dist_after_turn
+        
+    return car_x, car_y, car_rotation
+
+# --- Path Randomiser ---
+def path_randomiser():
+    # random.choice directly picks one item from a list. 
+    # Notice we are passing the ACTUAL functions, not calling them!
+    return random.choice([N_Street_Path_1,N_Street_Path_2, N_Street_Path_3])
+
+# --- MAIN CAR STATE LOGIC ---
+# ADDED: "chosen_path": None to the default memory
+def change_states_of_cars(current_time, street_light_states, _memory={"is_moving": False, "elapsed_time": 0.0, "last_time": None, "chosen_path": None}):
+    speed = 300 
+    
+    start_y = -250 # The starting y value for the grey car.
+    turn_start_y = 0 
+    stop_line_y = -200 # The y value of the stop line.
+    
+    # --- 0. ASSIGN A PATH ---
+    # If the car just spawned and has no path, roll the dice and save it!
+    if _memory["chosen_path"] is None:
+        _memory["chosen_path"] = path_randomiser()
+
+    # --- 1. CALCULATE TIME TICK (Delta Time) ---
+    if _memory["last_time"] is None:
+        _memory["last_time"] = current_time
+    delta_t = current_time - _memory["last_time"]
+    _memory["last_time"] = current_time
+
+    # Calculate the Point of No Return
+    distance_to_stop = abs(stop_line_y - start_y)
+    t_to_stop_line = distance_to_stop / speed
+
+    # --- 2. THE TRAFFIC LIGHT LOGIC (The Pause Button) ---
+    if street_light_states[3] == 'green':
+        _memory["is_moving"] = True          
+        
+    elif street_light_states[3] == 'red':
+        if _memory["elapsed_time"] < t_to_stop_line:
+            _memory["is_moving"] = False
+            
+    # --- 3. UPDATE THE STOPWATCH ---
+    if _memory["is_moving"]:
+        _memory["elapsed_time"] += delta_t
+        
+    drive_time = _memory["elapsed_time"]
+    
+    # --- 4. CALL THE PATH FUNCTION ---
+    # We grab the function we safely stored in memory, and call it!
+    my_path_function = _memory["chosen_path"]
+    grey_x, grey_y, grey_rotation = my_path_function(drive_time, speed, start_y, turn_start_y)
+
+    # --- 5. CREATE CARS ---
     grey_car = ['car_body_1', grey_x, grey_y, grey_rotation, [100, 100, 100, 255]]
 
-    current_cars = [blue_car, orange_car, grey_car]
+    # Return ALL cars at the very end in one list
+    current_cars = [grey_car]
 
     return current_cars
