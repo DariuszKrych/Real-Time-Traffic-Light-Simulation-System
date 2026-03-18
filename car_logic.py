@@ -3,7 +3,10 @@ import random # Using standard Python random is a bit cleaner here than numpy!
 
 # --- PATH FUNCTIONS ---
 def N_Street_Path_1(drive_time, speed, start_y, turn_start_y):
-    """Calculates the x, y, and rotation for a car turning LEFT (East) from the North street."""
+    """Calculates the x, y, and rotation for a car turning LEFT (East) into the y = -50 lane."""
+    # We force the turn to start exactly 50 pixels before our target lane (-50)
+    turn_start_y = -100 
+    
     distance_to_curve = abs(turn_start_y - start_y) 
     t_to_curve = distance_to_curve / speed
     
@@ -17,30 +20,26 @@ def N_Street_Path_1(drive_time, speed, start_y, turn_start_y):
         car_rotation = 270
         
     elif drive_time < t_turn_end:
-        # Phase 2: The Turn (Flipped for a Left Turn)
-        # Fixed rel_progress so it correctly counts up from 0.0 to 1.0
+        # Phase 2: The Turn
+        # Removed the "- 0.1" so the turn timing flows perfectly from Phase 1
         rel_progress = (drive_time - t_to_curve) / t_turn_duration
         angle_rad = (math.pi / 2) * rel_progress
         
-        # Center of the turn is shifted so we start exactly at x=50, y=0
-        # X gets larger (curving East), Y continues downwards
+        # X curves East, Y continues South from -100 down to -50
         car_x = 100 - (50 * math.cos(angle_rad))
-        car_y = -50 * math.sin(angle_rad)
+        car_y = turn_start_y + (50 * math.sin(angle_rad))
         
-        # Subtracting instead of adding so rotation turns from 270 (South) to 180 (East)
         car_rotation = 270 - (90 * rel_progress)
         
     else:
         # Phase 3: Driving off (Heading East)
-        car_y = -50 # Right Road
+        car_y = -50 # Perfectly aligned with the Right Road!
         car_rotation = 180 
         dist_after_turn = speed * (drive_time - t_turn_end)
         
-        # Moving right (+x), so we ADD the distance instead of subtracting
         car_x = 100 + dist_after_turn
         
     return car_x, car_y, car_rotation
-
 def N_Street_Path_2(drive_time, speed, start_y, turn_start_y):
     # Straight path
     car_y = start_y + (speed * drive_time)
