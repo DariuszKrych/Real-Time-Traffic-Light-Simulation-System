@@ -1,5 +1,5 @@
 import math
-import random # Using standard Python random is a bit cleaner here than numpy!
+import random
 
 # --- PATH FUNCTIONS ---
 def N_Street_Path_1(drive_time, speed, start_y, turn_start_y):
@@ -78,6 +78,7 @@ def N_Street_Path_3(drive_time, speed, start_y, turn_start_y):
         
     return car_x, car_y, car_rotation
 
+
 # --- Path Randomiser ---
 def path_randomiser():
     # random.choice directly picks one item from a list. 
@@ -126,6 +127,7 @@ def change_states_of_cars(current_time, street_light_states, _memory={"is_moving
     # We grab the function we safely stored in memory, and call it!
     my_path_function = _memory["chosen_path"]
     grey_x, grey_y, grey_rotation = my_path_function(drive_time, speed, start_y, turn_start_y)
+    #orange_x, orange_y, orange_rotation = my_path_function(drive_time, speed, start_y, turn_start_y)
 
     # --- 5. CREATE CARS ---
     grey_car = ['car_body_1', grey_x, grey_y, grey_rotation, [100, 100, 100, 255]]
@@ -134,3 +136,4 @@ def change_states_of_cars(current_time, street_light_states, _memory={"is_moving
     current_cars = [grey_car]
 
     return current_cars
+

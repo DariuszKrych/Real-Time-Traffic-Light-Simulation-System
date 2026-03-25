@@ -1,6 +1,7 @@
 from render import create_window, create_junction_renderer, update_camera_from_input
 from light_logic import change_street_light_colour
-from car_logic import change_states_of_cars
+import E_logic
+import N_logic
 import sdl3
 import ctypes
 import math
@@ -45,9 +46,11 @@ def main():
         street_light_state = change_street_light_colour(keys, global_time)
         
         # Check the current cars states. FOR JUSTIN
-        cars_states = change_states_of_cars(global_time, street_light_state)
+        north_cars_states = N_logic.change_states_of_cars(global_time, street_light_state)
+        east_cars_states = E_logic.change_states_of_carsE(global_time, street_light_state)
         # Draw the junction with current camera, zoom and street light colour.
-        draw_scene(renderer, camera_x, camera_y, zoom, street_light_state, cars_states)
+        draw_scene(renderer, camera_x, camera_y, zoom, street_light_state, north_cars_states + east_cars_states)
+        all_cars = north_cars_states + east_cars_states
 
         # Simple delay to maintain ~60 FPS (16ms per frame)
         sdl3.SDL_Delay(frametime_msec)
