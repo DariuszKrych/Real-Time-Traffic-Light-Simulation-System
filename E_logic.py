@@ -2,6 +2,46 @@ import math
 import random
 
 # --- PATH FUNCTIONS ---
+
+def E_Street_Path_1(drive_time, speed, start_x, turn_start_x):
+    """Calculates the x, y, and rotation for a car turning LEFT (North) into the x = -50 lane."""
+    # We force the turn to start exactly 50 pixels before our target lane (-50)
+    turn_start_x = -100 
+    
+    distance_to_curve = abs(turn_start_x - start_x) 
+    t_to_curve = distance_to_curve / speed
+    
+    t_turn_duration = (math.pi * 50 / 2) / speed
+    t_turn_end = t_to_curve + t_turn_duration
+
+    if drive_time < t_to_curve:
+        # Phase 1: Straight to the curve (Heading East)
+        car_x = start_x + (speed * drive_time)
+        car_y = -50
+        car_rotation = 180
+        
+    elif drive_time < t_turn_end:
+        # Phase 2: The Turn
+        rel_progress = (drive_time - t_to_curve) / t_turn_duration
+        angle_rad = (math.pi / 2) * rel_progress
+        
+        # X continues East from -100 to -50, Y curves North from -50 up to -100
+        car_x = turn_start_x + (50 * math.sin(angle_rad))
+        car_y = -100 + (50 * math.cos(angle_rad))
+        
+        car_rotation = 180 - (90 * rel_progress)
+        
+    else:
+        # Phase 3: Driving off (Heading North)
+        car_x = -50 # Perfectly aligned with the Top Road!
+        car_rotation = 90 
+        dist_after_turn = speed * (drive_time - t_turn_end)
+        
+        # Subtracting distance because North is the negative Y direction
+        car_y = -100 - dist_after_turn
+        
+    return car_x, car_y, car_rotation
+
 def E_Street_Path_2(drive_time, speed, start_x,turn_start_x):
     # Straight path
     car_x = start_x + (speed * drive_time)
@@ -9,11 +49,47 @@ def E_Street_Path_2(drive_time, speed, start_x,turn_start_x):
     car_rotation = 180
     return car_x, car_y, car_rotation
 
+def E_Street_Path_3(drive_time, speed, start_x, turn_start_x):
+    """Calculates the x, y, and rotation for a car turning from the East street."""
+    distance_to_curve = abs(turn_start_x - start_x) 
+    t_to_curve = distance_to_curve / speed
+    
+    t_turn_duration = (math.pi * 50 / 2) / speed
+    t_turn_end = t_to_curve + t_turn_duration
+
+    if drive_time < t_to_curve:
+        # Phase 1: Straight to the curve (Heading East)
+        car_x = start_x + (speed * drive_time)
+        car_y = -50
+        car_rotation = 180
+        
+    elif drive_time < t_turn_end:
+        # Phase 2: The Turn
+        rel_progress = (drive_time - t_to_curve) / t_turn_duration
+        angle_rad = (math.pi / 2) * rel_progress
+        
+        # X continues East from -100 to -50, Y curves North from -50 up to -100
+        car_x = turn_start_x + (50 * math.sin(angle_rad))
+        car_y = 0 - (50 * math.cos(angle_rad))
+        
+        car_rotation = 180 + (90 * rel_progress)
+        
+    else:
+        # Phase 3: Driving off (Heading North)
+        car_x = 50 # Perfectly aligned with the Top Road!
+        car_rotation = 270
+        dist_after_turn = speed * (drive_time - t_turn_end)
+        
+        # Subtracting distance because North is the negative Y direction
+        car_y = 0 + dist_after_turn
+        
+    return car_x, car_y, car_rotation
+
 # --- Path Randomiser ---
 def path_randomiser():
     # random.choice directly picks one item from a list. 
     # Notice we are passing the ACTUAL functions, not calling them!
-    return random.choice([E_Street_Path_2])
+    return random.choice([E_Street_Path_1, E_Street_Path_2, E_Street_Path_3])
 
 # --- MAIN CAR STATE LOGIC ---
 # ADDED: "chosen_path": None to the default memory

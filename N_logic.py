@@ -40,6 +40,7 @@ def N_Street_Path_1(drive_time, speed, start_y, turn_start_y):
         car_x = 100 + dist_after_turn
         
     return car_x, car_y, car_rotation
+
 def N_Street_Path_2(drive_time, speed, start_y, turn_start_y):
     # Straight path
     car_y = start_y + (speed * drive_time)
