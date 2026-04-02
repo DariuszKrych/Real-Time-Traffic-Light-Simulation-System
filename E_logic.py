@@ -42,15 +42,15 @@ def E_Street_Path_1(drive_time, speed, start_x, turn_start_x):
         
     return car_x, car_y, car_rotation
 
-def E_Street_Path_2(drive_time, speed, start_x,turn_start_x):
-    # Straight path
+def E_Street_Path_2(drive_time, speed, start_x, turn_start_x):
+    """Straight path heading East."""
     car_x = start_x + (speed * drive_time)
     car_y = -50
     car_rotation = 180
     return car_x, car_y, car_rotation
 
 def E_Street_Path_3(drive_time, speed, start_x, turn_start_x):
-    """Calculates the x, y, and rotation for a car turning from the East street."""
+    """Calculates the x, y, and rotation for a car turning RIGHT (South) from the East street."""
     distance_to_curve = abs(turn_start_x - start_x) 
     t_to_curve = distance_to_curve / speed
     
@@ -68,42 +68,40 @@ def E_Street_Path_3(drive_time, speed, start_x, turn_start_x):
         rel_progress = (drive_time - t_to_curve) / t_turn_duration
         angle_rad = (math.pi / 2) * rel_progress
         
-        # X continues East from -100 to -50, Y curves North from -50 up to -100
+        # X continues East from -100 to -50, Y curves South from -50 down to 0
         car_x = turn_start_x + (50 * math.sin(angle_rad))
         car_y = 0 - (50 * math.cos(angle_rad))
         
         car_rotation = 180 + (90 * rel_progress)
         
     else:
-        # Phase 3: Driving off (Heading North)
-        car_x = 50 # Perfectly aligned with the Top Road!
+        # Phase 3: Driving off (Heading South)
+        car_x = 50 # Perfectly aligned with the Bottom Road!
         car_rotation = 270
         dist_after_turn = speed * (drive_time - t_turn_end)
         
-        # Subtracting distance because North is the negative Y direction
+        # Adding distance because South is the positive Y direction
         car_y = 0 + dist_after_turn
         
     return car_x, car_y, car_rotation
 
-# --- Path Randomiser ---
+# --- PATH RANDOMISER ---
 def path_randomiser():
-    # random.choice directly picks one item from a list. 
-    # Notice we are passing the ACTUAL functions, not calling them!
+    """Randomly selects one of the path functions."""
     return random.choice([E_Street_Path_1, E_Street_Path_2, E_Street_Path_3])
 
 # --- MAIN CAR STATE LOGIC ---
-# ADDED: "chosen_path": None to the default memory
-def change_states_of_carsE(current_time, street_light_states, _memory={"is_moving": False, "elapsed_time": 0.0, "last_time": None, "chosen_path": None}):
+def change_states_of_carsE(current_time, street_light_states, _memory={"is_moving": False, "elapsed_time": 0.0, "last_time": None, "chosen_paths": None}):
     speed = 300 
     
-    start_y = -250 # The starting y value for the grey car.
+    start_y = -250 # The starting y value for the cars.
     turn_start_y = 0 
     stop_line_y = -200 # The y value of the stop line.
     
-    # --- 0. ASSIGN A PATH ---
-    # If the car just spawned and has no path, roll the dice and save it!
-    if _memory["chosen_path"] is None:
-        _memory["chosen_path"] = path_randomiser()
+    # --- 0. ASSIGN PATHS ---
+    # If the cars just spawned, roll the dice TWICE (once for each car) and save to the list
+    if _memory["chosen_paths"] is None:
+        _memory["chosen_paths"] = [path_randomiser(), path_randomiser()]
 
     # --- 1. CALCULATE TIME TICK (Delta Time) ---
     if _memory["last_time"] is None:
@@ -129,16 +127,25 @@ def change_states_of_carsE(current_time, street_light_states, _memory={"is_movin
         
     drive_time = _memory["elapsed_time"]
     
-    # --- 4. CALL THE PATH FUNCTION ---
-    # We grab the function we safely stored in memory, and call it!
-    my_path_function = _memory["chosen_path"]
-    purple_x, purple_y, purple_rotation = my_path_function(drive_time, speed, start_y, turn_start_y)
-    #orange_x, orange_y, orange_rotation = my_path_function(drive_time, speed, start_y, turn_start_y)
+    # --- 4. CALL THE PATH FUNCTIONS ---
+    # Grab the specific path function for each car based on their list index
+    purple_path_function = _memory["chosen_paths"][0]
+    red_path_function = _memory["chosen_paths"][1]
+    
+    # Calculate the lead car (Purple)
+    purple_x, purple_y, purple_rotation = purple_path_function(drive_time, speed, start_y, turn_start_y)
+
+    # Calculate the trailing car (Red) by subtracting a time delay
+    # A 0.7 second delay creates a nice natural gap between the cars
+    time_gap = 0.7 
+    red_drive_time = drive_time - time_gap
+    red_x, red_y, red_rotation = red_path_function(red_drive_time, speed, start_y, turn_start_y)
 
     # --- 5. CREATE CARS ---
     purple_car = ['car_body_1', purple_x, purple_y, purple_rotation, [100, 0, 100, 255]]
+    red_car = ['car_body_1', red_x, red_y, red_rotation, [200, 0, 0, 255]]
 
     # Return ALL cars at the very end in one list
-    current_cars = [purple_car]
+    current_cars = [purple_car, red_car]
 
     return current_cars
