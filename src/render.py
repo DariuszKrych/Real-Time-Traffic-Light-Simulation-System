@@ -985,8 +985,7 @@ def create_junction_renderer(window_dimensions):
         for car in current_cars:
             draw_car(renderer, camera_x, camera_y, zoom, car[0], car[1], car[2], car[3], car[4])
 
-        # Present the frame to the window
-        sdl3.SDL_RenderPresent(renderer)
+        # Note: SDL_RenderPresent is called from main.py after GUI overlay
 
     return draw_scene
 

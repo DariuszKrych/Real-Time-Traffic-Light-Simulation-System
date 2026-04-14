@@ -90,6 +90,7 @@ CAR_COLORS = [
 
 DESPAWN_BOUNDARY = 1400
 CAR_LENGTH = 200  # car_body_1 is ~174 units long + gap
+CAR_BODY_MODELS = ['car_body_' + str(i) for i in range(1, 13)]
 
 _cars = []
 
@@ -101,27 +102,42 @@ def spawn_car():
         "chosen_path": path_randomiser(),
         "color": random.choice(CAR_COLORS),
         "passed_through": False,
+        "speed": random.randint(200, 400),
+        "body": random.choice(CAR_BODY_MODELS),
     })
+
+def get_queue_length():
+    return len(_cars)
+
+def has_cars_in_junction():
+    for car in _cars:
+        if car["passed_through"]:
+            distance = car["elapsed_time"] * car["speed"]
+            if distance < 1200:
+                return True
+    return False
 
 def _is_out_of_bounds(x, y):
     return abs(x) > DESPAWN_BOUNDARY or abs(y) > DESPAWN_BOUNDARY
 
-def change_states_of_carsE(current_time, street_light_states):
-    speed = 300
+def change_states_of_carsE(current_time, street_light_states, junction_blocked=False):
     start_y = -1000
     turn_start_y = 0
-    base_stop_time = 800 / speed
-    min_following_time = CAR_LENGTH / speed
 
     light = street_light_states[0]
 
-    sorted_cars = sorted(enumerate(_cars), key=lambda ic: ic[1]["elapsed_time"], reverse=True)
+    # Sort cars front-to-back (highest distance = closest to junction)
+    sorted_cars = sorted(enumerate(_cars), key=lambda ic: ic[1]["elapsed_time"] * ic[1]["speed"], reverse=True)
 
     all_cars = []
     cars_to_remove = []
-    prev_car_elapsed = None
+    prev_car_distance = None
 
     for orig_idx, car in sorted_cars:
+        speed = car["speed"]
+        base_stop_distance = 800
+        base_stop_time = base_stop_distance / speed
+
         if car["last_time"] is None:
             car["last_time"] = current_time
         delta_t = current_time - car["last_time"]
@@ -129,11 +145,12 @@ def change_states_of_carsE(current_time, street_light_states):
 
         max_elapsed = float('inf')
 
-        if prev_car_elapsed is not None:
-            max_elapsed = prev_car_elapsed - min_following_time
+        if prev_car_distance is not None:
+            max_distance = prev_car_distance - CAR_LENGTH
+            max_elapsed = max_distance / speed
 
         if not car["passed_through"]:
-            if light == 'red':
+            if light == 'red' or junction_blocked:
                 max_elapsed = min(max_elapsed, base_stop_time)
             elif car["elapsed_time"] >= base_stop_time:
                 car["passed_through"] = True
@@ -155,8 +172,8 @@ def change_states_of_carsE(current_time, street_light_states):
             cars_to_remove.append(orig_idx)
             continue
 
-        prev_car_elapsed = car["elapsed_time"]
-        all_cars.append(['car_body_1', x, y, rot, car["color"]])
+        prev_car_distance = car["elapsed_time"] * speed
+        all_cars.append([car["body"], x, y, rot, car["color"]])
 
     for i in reversed(sorted(cars_to_remove)):
         _cars.pop(i)
