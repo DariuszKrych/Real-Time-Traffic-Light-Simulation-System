@@ -6,6 +6,7 @@ simulation_running = True
 light_mode = "automatic"
 cycle_duration = 4.0
 manual_direction = "north"  # which direction is green in manual mode
+network_status = None
 
 # --- Layout Constants ---
 PANEL_X = 10
@@ -112,6 +113,16 @@ def draw_gui(renderer):
     sdl3.SDL_RenderDebugText(renderer, 10, 700,
         b"Camera controls: Up[w], Down[s], Left[a], Right[d], Zoom-in[q], Zoom-out[e]")
 
+    if network_status is not None:
+        status_text = (
+            f"Network: {network_status['status']} | "
+            f"junction {network_status['junction_id']} | "
+            f"peers {network_status['peer_count']}"
+        )
+        if network_status["last_error"] and network_status["status"] != "connected":
+            status_text += f" | {network_status['last_error'][:45]}"
+        sdl3.SDL_RenderDebugText(renderer, 10, 685, status_text.encode())
+
 
 def _draw_button(renderer, btn, active=False):
     if active:
@@ -177,3 +188,8 @@ def get_state():
         "cycle_duration": cycle_duration,
         "manual_direction": manual_direction,
     }
+
+
+def set_network_status(status):
+    global network_status
+    network_status = status
