@@ -1,7 +1,7 @@
 import ctypes
 import sdl3
 import math
-
+import json
 
 def create_window():
     sdl3.SDL_Init(sdl3.SDL_INIT_VIDEO | sdl3.SDL_INIT_EVENTS)
@@ -1033,3 +1033,18 @@ def update_camera_from_input(keys, camera_x, camera_y, zoom, camera_speed, zoom_
             new_camera_y = world_center_y - (window_height / 2) / new_zoom
 
     return new_camera_x, new_camera_y, new_zoom
+
+def get_car_model(model_name):
+    # 1. Open and load the package file
+    with open('package.json', 'r') as file:
+        data = json.load(file)
+
+    # 2. Extract the specific car from your 'car_models' object
+    car_data = data.get("car_models", {}).get(model_name)
+
+    if not car_data:
+        print(f"Error: {model_name} not found!")
+        return None
+
+    return car_data
+
