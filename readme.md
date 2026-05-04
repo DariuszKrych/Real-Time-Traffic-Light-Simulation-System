@@ -33,3 +33,30 @@ dependencies:
 &nbsp;&nbsp;\- pip  
 &nbsp;&nbsp;\- pip:  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- PySDL3
+
+## Running the Simulation
+
+Run the standalone simulation with:
+
+```bash
+python run.py
+```
+
+## Networking Extension
+
+Start the central traffic server in one terminal:
+
+```bash
+python -m src.traffic_server --host 127.0.0.1 --port 8765
+```
+
+Then start one or more junction clients in separate terminals:
+
+```bash
+python run.py --network --junction-id A1 --grid-x 0 --grid-y 0
+python run.py --network --junction-id B1 --grid-x 1 --grid-y 0
+```
+
+Each client continues to simulate its own junction locally while publishing its
+traffic light state, queue lengths, visible car count, and grid position to the
+server. The server broadcasts the city-grid state back to all connected clients.
