@@ -48,6 +48,8 @@ class TrafficServer:
                     elif message_type == "junction_update":
                         junction_id = self._update_junction(client_sock, message, address, junction_id)
                         self._broadcast_grid_state()
+                    elif message_type == "car_handoff":
+                        self._relay_car_handoff(message)
             except (OSError, json.JSONDecodeError) as exc:
                 print(f"Client {address[0]}:{address[1]} disconnected: {exc}")
             finally:
@@ -89,6 +91,25 @@ class TrafficServer:
                 "last_seen": time.time(),
             }
         return junction_id
+
+    def _relay_car_handoff(self, message):
+        target_id = message.get("to_junction")
+        if not target_id:
+            return
+        with self._lock:
+            target_sock = self._clients.get(target_id)
+        if target_sock is None:
+            return
+        data = (json.dumps(message, separators=(",", ":")) + "\n").encode("utf-8")
+        try:
+            with self._send_lock:
+                target_sock.sendall(data)
+        except OSError:
+            with self._lock:
+                self._clients.pop(target_id, None)
+                if target_id in self._junctions:
+                    self._junctions[target_id]["connected"] = False
+                    self._junctions[target_id]["last_seen"] = time.time()
 
     def _broadcast_grid_state(self):
         with self._lock:

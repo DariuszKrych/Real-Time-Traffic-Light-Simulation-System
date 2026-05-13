@@ -123,6 +123,120 @@ def draw_gui(renderer):
             status_text += f" | {network_status['last_error'][:45]}"
         sdl3.SDL_RenderDebugText(renderer, 10, 685, status_text.encode())
 
+        _draw_city_grid_panel(renderer)
+
+
+# --- City Grid Minimap ---
+GRID_CELL_W = 150
+GRID_CELL_H = 70
+GRID_CELL_GAP = 8
+GRID_OWN_BORDER = (255, 215, 0, 255)      # gold
+GRID_PEER_BORDER = (180, 180, 180, 255)   # grey
+GRID_DISCONNECTED_BORDER = (120, 60, 60, 255)
+GRID_CELL_BG = (30, 30, 30, 220)
+GRID_HEADER_BG = (50, 50, 50, 220)
+
+
+def _draw_city_grid_panel(renderer):
+    grid = network_status.get("grid") or {}
+    if not grid:
+        return
+
+    own_id = network_status.get("junction_id")
+
+    # Compute grid bounds in cell coordinates so we can draw a spatial layout.
+    xs, ys = [], []
+    for info in grid.values():
+        gp = info.get("grid_position") or [0, 0]
+        if len(gp) >= 2:
+            xs.append(int(gp[0]))
+            ys.append(int(gp[1]))
+    if not xs:
+        return
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    cols = max_x - min_x + 1
+    rows = max_y - min_y + 1
+
+    panel_w = cols * GRID_CELL_W + (cols + 1) * GRID_CELL_GAP
+    panel_h = rows * GRID_CELL_H + (rows + 1) * GRID_CELL_GAP + 20  # 20 for header
+    panel_x = 1280 - panel_w - 10
+    panel_y = 10
+
+    # Panel backdrop
+    sdl3.SDL_SetRenderDrawColor(renderer, *GRID_HEADER_BG)
+    bg = sdl3.SDL_FRect(panel_x, panel_y, panel_w, panel_h)
+    sdl3.SDL_RenderFillRect(renderer, ctypes.byref(bg))
+    sdl3.SDL_SetRenderDrawColor(renderer, *LABEL_COLOR)
+    sdl3.SDL_RenderDebugText(renderer, panel_x + 8, panel_y + 4, b"City Grid")
+
+    # Draw a cell per junction at its (grid_x, grid_y) offset.
+    for jid, info in grid.items():
+        gp = info.get("grid_position") or [0, 0]
+        if len(gp) < 2:
+            continue
+        col = int(gp[0]) - min_x
+        row = int(gp[1]) - min_y
+        cx = panel_x + GRID_CELL_GAP + col * (GRID_CELL_W + GRID_CELL_GAP)
+        cy = panel_y + 20 + GRID_CELL_GAP + row * (GRID_CELL_H + GRID_CELL_GAP)
+
+        connected = info.get("connected", True)
+        payload = info.get("payload") or {}
+        is_self = (jid == own_id)
+
+        # Cell background
+        sdl3.SDL_SetRenderDrawColor(renderer, *GRID_CELL_BG)
+        cell = sdl3.SDL_FRect(cx, cy, GRID_CELL_W, GRID_CELL_H)
+        sdl3.SDL_RenderFillRect(renderer, ctypes.byref(cell))
+
+        # Border colour: gold for self, red-ish for disconnected, grey for peers.
+        if is_self:
+            border = GRID_OWN_BORDER
+        elif not connected:
+            border = GRID_DISCONNECTED_BORDER
+        else:
+            border = GRID_PEER_BORDER
+        sdl3.SDL_SetRenderDrawColor(renderer, *border)
+        sdl3.SDL_RenderRect(renderer, ctypes.byref(cell))
+        # Double-thickness border for self
+        if is_self:
+            inner = sdl3.SDL_FRect(cx + 1, cy + 1, GRID_CELL_W - 2, GRID_CELL_H - 2)
+            sdl3.SDL_RenderRect(renderer, ctypes.byref(inner))
+
+        # Labels
+        id_label = f"{jid}{' (you)' if is_self else ''}"
+        coord_label = f"({int(gp[0])},{int(gp[1])})"
+        mode = payload.get("light_mode", "?")
+        running = payload.get("running", None)
+        run_label = "running" if running else "stopped" if running is False else "—"
+        peers_cars = payload.get("cars_visible")
+        cars_label = f"cars:{peers_cars}" if peers_cars is not None else ""
+
+        sdl3.SDL_SetRenderDrawColor(renderer, *TEXT_COLOR)
+        sdl3.SDL_RenderDebugText(renderer, cx + 6, cy + 6, id_label.encode())
+        sdl3.SDL_SetRenderDrawColor(renderer, *LABEL_COLOR)
+        sdl3.SDL_RenderDebugText(renderer, cx + 6, cy + 18, coord_label.encode())
+        sdl3.SDL_RenderDebugText(renderer, cx + 6, cy + 30, f"mode: {mode}".encode())
+        sdl3.SDL_RenderDebugText(renderer, cx + 6, cy + 42, f"{run_label}  {cars_label}".encode())
+
+        # Tiny phase indicators (4 dots = W,E,S,N matching street_light_state order in main.py)
+        lights = payload.get("lights") or {}
+        order = [("west", "W"), ("east", "E"), ("south", "S"), ("north", "N")]
+        dot_y = cy + GRID_CELL_H - 12
+        for i, (key, _ch) in enumerate(order):
+            color_name = lights.get(key, "off")
+            if color_name == "green":
+                col_rgba = (0, 200, 0, 255)
+            elif color_name == "orange":
+                col_rgba = (240, 150, 0, 255)
+            elif color_name == "red":
+                col_rgba = (220, 30, 30, 255)
+            else:
+                col_rgba = (80, 80, 80, 255)
+            sdl3.SDL_SetRenderDrawColor(renderer, *col_rgba)
+            dot = sdl3.SDL_FRect(cx + 6 + i * 16, dot_y, 10, 8)
+            sdl3.SDL_RenderFillRect(renderer, ctypes.byref(dot))
+
 
 def _draw_button(renderer, btn, active=False):
     if active:

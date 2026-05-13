@@ -19,8 +19,10 @@ def create_window():
 def create_junction_renderer(window_dimensions):
     window_width, window_height = window_dimensions
 
-    # Common road details
-    road_length = 2000
+    # Common road details. road_length matches main.JUNCTION_GRID_SPACING so that
+    # adjacent junctions' roads touch at the seam (each road extends ±1200 from
+    # its centre and JUNCTION_GRID_SPACING is 2400).
+    road_length = 2400
     road_width = 200
     road_rgba_colour = [166, 156, 144, 255]
 
@@ -960,30 +962,49 @@ def create_junction_renderer(window_dimensions):
 
 
     # ---- main drawing function (returned) ----
-    def draw_scene(renderer, camera_x, camera_y, zoom, current_light_state, current_cars):
-        # Drawing background colour
+    def _render_one_junction(renderer, cam_x, cam_y, zoom, light_state, cars, label, label_rgba):
+        # Roads
+        sdl3.SDL_SetRenderDrawColor(renderer, road_rgba_colour[0], road_rgba_colour[1], road_rgba_colour[2], road_rgba_colour[3])
+        draw_rectangle(renderer, horiz_road_pos_x, horiz_road_pos_y, horiz_road_width, horiz_road_height, cam_x, cam_y, zoom)
+        draw_rectangle(renderer, vert_road_pos_x, vert_road_pos_y, vert_road_width, vert_road_height, cam_x, cam_y, zoom)
+        # Lane lines + stop lines
+        sdl3.SDL_SetRenderDrawColor(renderer, lane_line_rgba_colour[0], lane_line_rgba_colour[1], lane_line_rgba_colour[2], lane_line_rgba_colour[3])
+        draw_dotted_lines(renderer, cam_x, cam_y, zoom)
+        draw_stop_lines(renderer, cam_x, cam_y, zoom)
+        # Traffic lights
+        draw_traffic_lights(renderer, cam_x, cam_y, zoom, light_state)
+        # Cars
+        for car in cars:
+            draw_car(renderer, cam_x, cam_y, zoom, car[0], car[1], car[2], car[3], car[4])
+        # Junction ID label, placed above the intersection in world space and rendered in screen space
+        if label:
+            label_world_y = cy - road_width / 2 - 50  # 50 units above the road
+            screen_x = (cx - cam_x) * zoom
+            screen_y = (label_world_y - cam_y) * zoom
+            text_w = len(label) * 8  # SDL_RenderDebugText is 8px per char
+            sdl3.SDL_SetRenderDrawColor(renderer, label_rgba[0], label_rgba[1], label_rgba[2], label_rgba[3])
+            sdl3.SDL_RenderDebugText(renderer, screen_x - text_w / 2, screen_y, label.encode())
+
+    def draw_scene(renderer, camera_x, camera_y, zoom, current_light_state, current_cars,
+                   peers=None, own_label=None, junction_spacing=2400):
+        # Background clear (once per frame)
         sdl3.SDL_SetRenderDrawColor(renderer, 172, 205, 111, 255)
         sdl3.SDL_RenderClear(renderer)
 
-        # Setting to road colour
-        sdl3.SDL_SetRenderDrawColor(renderer, road_rgba_colour[0], road_rgba_colour[1], road_rgba_colour[2], road_rgba_colour[3])
-        # Drawing horizontal and vertical roads
-        draw_rectangle(renderer, horiz_road_pos_x, horiz_road_pos_y, horiz_road_width, horiz_road_height, camera_x, camera_y, zoom)
-        draw_rectangle(renderer, vert_road_pos_x, vert_road_pos_y, vert_road_width, vert_road_height, camera_x, camera_y, zoom)
+        # Self at user-controlled camera; gold label
+        _render_one_junction(renderer, camera_x, camera_y, zoom,
+                             current_light_state, current_cars,
+                             own_label, (255, 215, 0, 255))
 
-        # Setting to lane line colour
-        sdl3.SDL_SetRenderDrawColor(renderer, lane_line_rgba_colour[0], lane_line_rgba_colour[1], lane_line_rgba_colour[2], lane_line_rgba_colour[3])
-        # Drawing lane lines
-        draw_dotted_lines(renderer, camera_x, camera_y, zoom)
-        # Drawing stop lines
-        draw_stop_lines(renderer, camera_x, camera_y, zoom)
-        # Drawing traffic lights
-        draw_traffic_lights(renderer, camera_x, camera_y, zoom, current_light_state)
-        # Draw cars
-        # Nathan yippie
-        #draw_car(renderer, camera_x, camera_y, zoom, 'car_body_12', 0, 0, 0, [136, 213, 229, 255])
-        for car in current_cars:
-            draw_car(renderer, camera_x, camera_y, zoom, car[0], car[1], car[2], car[3], car[4])
+        # Peers at offsets — shift the camera by (-dx*spacing, -dy*spacing) so the
+        # peer's identical world coordinates appear at the right spot on screen.
+        if peers:
+            for peer in peers:
+                cam_x = camera_x - peer["dx"] * junction_spacing
+                cam_y = camera_y - peer["dy"] * junction_spacing
+                _render_one_junction(renderer, cam_x, cam_y, zoom,
+                                     peer["lights"], peer["cars"],
+                                     peer.get("label"), (220, 220, 220, 255))
 
         # Note: SDL_RenderPresent is called from main.py after GUI overlay
 

@@ -77,6 +77,14 @@ CAR_LENGTH = 200  # car_body_1 is ~174 units long + gap
 CAR_BODY_MODELS = ['car_body_' + str(i) for i in range(1, 13)]
 
 _cars = []
+_exits = []
+_pending_injects = []
+
+def can_accept_car():
+    for c in _cars:
+        if c["elapsed_time"] * c["speed"] < CAR_LENGTH:
+            return False
+    return True
 
 def spawn_car():
     _cars.append({
@@ -89,6 +97,27 @@ def spawn_car():
         "speed": random.randint(200, 400),
         "body": random.choice(CAR_BODY_MODELS),
     })
+
+def inject_car(speed, color, body):
+    _pending_injects.append({"speed": speed, "color": color, "body": body})
+
+def _do_inject(p):
+    _cars.append({
+        "is_moving": False,
+        "elapsed_time": 0.0,
+        "last_time": None,
+        "chosen_path": path_randomiser_W(),
+        "color": list(p["color"]) if p["color"] else random.choice(CAR_COLORS),
+        "passed_through": False,
+        "speed": int(p["speed"]) if p["speed"] else random.randint(200, 400),
+        "body": p["body"] if p["body"] in CAR_BODY_MODELS else random.choice(CAR_BODY_MODELS),
+    })
+
+def drain_exits():
+    global _exits
+    out = _exits
+    _exits = []
+    return out
 
 def get_queue_length():
     return len(_cars)
@@ -107,6 +136,9 @@ def _is_out_of_bounds(x, y):
 def change_states_of_carsW(current_time, street_light_states, junction_blocked=False):
     start_x = 1000
     turn_start_x = 0
+
+    while _pending_injects and can_accept_car():
+        _do_inject(_pending_injects.pop(0))
 
     light = street_light_states[1]
 
@@ -153,6 +185,20 @@ def change_states_of_carsW(current_time, street_light_states, junction_blocked=F
         x, y, rot = car["chosen_path"](drive_time, speed, start_x, turn_start_x)
 
         if _is_out_of_bounds(x, y):
+            if x > DESPAWN_BOUNDARY:
+                edge = "east"
+            elif x < -DESPAWN_BOUNDARY:
+                edge = "west"
+            elif y > DESPAWN_BOUNDARY:
+                edge = "south"
+            else:
+                edge = "north"
+            _exits.append({
+                "edge": edge,
+                "speed": car["speed"],
+                "color": car["color"],
+                "body": car["body"],
+            })
             cars_to_remove.append(orig_idx)
             continue
 

@@ -22,6 +22,8 @@ class TrafficNetworkClient:
         self._status = "disconnected"
         self._last_error = ""
         self._outbox = None
+        self._handoff_outbox = []
+        self._handoff_inbox = []
         self._receive_buffer = ""
 
     def start(self):
@@ -48,6 +50,25 @@ class TrafficNetworkClient:
         with self._lock:
             self._outbox = message
 
+    def send_car_handoff(self, to_junction_id, edge, speed, color, body):
+        message = {
+            "type": "car_handoff",
+            "from_junction": self.junction_id,
+            "to_junction": to_junction_id,
+            "edge": edge,
+            "speed": speed,
+            "color": list(color) if color is not None else None,
+            "body": body,
+        }
+        with self._lock:
+            self._handoff_outbox.append(message)
+
+    def drain_handoffs(self):
+        with self._lock:
+            out = self._handoff_inbox
+            self._handoff_inbox = []
+        return out
+
     def get_snapshot(self):
         with self._lock:
             peer_count = max(0, len(self._latest_grid) - (1 if self.junction_id in self._latest_grid else 0))
@@ -73,7 +94,7 @@ class TrafficNetworkClient:
                 while self._running:
                     self._flush_latest_update()
                     self._read_available_messages()
-                    time.sleep(0.1)
+                    time.sleep(0.02)
             except OSError as exc:
                 self._set_status("disconnected", str(exc))
                 self._close_socket()
@@ -88,8 +109,12 @@ class TrafficNetworkClient:
         with self._lock:
             message = self._outbox
             self._outbox = None
+            pending_handoffs = self._handoff_outbox
+            self._handoff_outbox = []
         if message is not None:
             self._send(message)
+        for handoff in pending_handoffs:
+            self._send(handoff)
 
     def _read_available_messages(self):
         if self._sock is None:
@@ -107,9 +132,14 @@ class TrafficNetworkClient:
                 if not line.strip():
                     continue
                 message = json.loads(line)
-                if message.get("type") == "grid_state":
+                msg_type = message.get("type")
+                if msg_type == "grid_state":
                     with self._lock:
                         self._latest_grid = message.get("junctions", {})
+                elif msg_type == "car_handoff":
+                    if message.get("to_junction") == self.junction_id:
+                        with self._lock:
+                            self._handoff_inbox.append(message)
 
     def _send(self, message):
         if self._sock is None:

@@ -15,7 +15,42 @@ import random
 import time
 
 SPAWN_INTERVAL = 3.0
-NETWORK_UPDATE_INTERVAL = 0.5
+NETWORK_UPDATE_INTERVAL = 0.05  # 20 Hz: keeps peer rendering smooth across the wire
+JUNCTION_GRID_SPACING = 2400  # world units between rendered peer junction centres
+
+# Exit edge -> (grid offset dx,dy, receiving module attribute).
+# A car heading off the world's east edge arrives at the eastern neighbour's
+# `east` module (cars in the `east` module enter at the west side heading east),
+# heading south arrives at the southern neighbour's `north` module, etc.
+_HANDOFF_ROUTES = {
+    "east":  ((1, 0),  "east"),
+    "west":  ((-1, 0), "west"),
+    "south": ((0, 1),  "north"),
+    "north": ((0, -1), "south"),
+}
+_MODULE_BY_NAME = {"north": north, "east": east, "south": south, "west": west}
+
+# Which neighbour offset *feeds* each module via handoff. If that neighbour is
+# present in the city grid, do not spawn locally into the module — let cars
+# arrive from the neighbour instead. Keys are the direction module objects.
+_SPAWN_FEEDER = {
+    north: (0, -1),
+    south: (0, 1),
+    east:  (-1, 0),
+    west:  (1, 0),
+}
+
+
+def _find_neighbour(grid_snapshot, self_id, target_gx, target_gy):
+    for jid, info in grid_snapshot.items():
+        if jid == self_id:
+            continue
+        if not info.get("connected", True):
+            continue
+        gp = info.get("grid_position") or [None, None]
+        if len(gp) >= 2 and gp[0] == target_gx and gp[1] == target_gy:
+            return jid
+    return None
 
 
 def parse_args(argv=None):
@@ -39,7 +74,7 @@ def main(argv=None):
 
     # Camera and zoom details
     camera_x, camera_y,camera_speed = 0, 0, 5
-    zoom, min_zoom, max_zoom, zoom_speed = 1.0, 0.5, 2.0, 0.01
+    zoom, min_zoom, max_zoom, zoom_speed = 1.0, 0.25, 2.0, 0.01
 
     # Enables alpha values for colour transparency when drawing
     sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
@@ -111,9 +146,25 @@ def main(argv=None):
                 else:
                     set_manual_override(gui_state["manual_direction"])
 
-                # Spawn a new car group at a random edge every SPAWN_INTERVAL seconds
+                # Spawn a new car group at a random edge every SPAWN_INTERVAL seconds.
+                # Skip any edge that has a connected neighbour — those cars come in
+                # via handoff instead. Also skip if that edge has no room.
                 if global_time - last_spawn_time >= SPAWN_INTERVAL:
-                    random.choice(direction_modules).spawn_car()
+                    spawn_pool = direction_modules
+                    if network_client is not None:
+                        grid = network_client.get_snapshot().get("grid", {})
+                        spawn_pool = [
+                            m for m in direction_modules
+                            if _find_neighbour(
+                                grid, args.junction_id,
+                                args.grid_x + _SPAWN_FEEDER[m][0],
+                                args.grid_y + _SPAWN_FEEDER[m][1],
+                            ) is None
+                        ]
+                    if spawn_pool:
+                        mod = random.choice(spawn_pool)
+                        if mod.can_accept_car():
+                            mod.spawn_car()
                     last_spawn_time = global_time
 
                 # Check the current street light colour and pass it to be drawn
@@ -140,6 +191,49 @@ def main(argv=None):
 
                 all_cars = north_cars_states + east_cars_states + west_cars_states + south_cars_states
 
+                # --- Outgoing car handoffs: cars that just left this junction's world ---
+                if network_client is not None:
+                    snapshot = network_client.get_snapshot()
+                    grid = snapshot.get("grid", {})
+                    for mod in direction_modules:
+                        for exit_info in mod.drain_exits():
+                            route = _HANDOFF_ROUTES.get(exit_info["edge"])
+                            if route is None:
+                                continue
+                            (dx, dy), _recv_attr = route
+                            target_id = _find_neighbour(
+                                grid, args.junction_id,
+                                args.grid_x + dx, args.grid_y + dy,
+                            )
+                            if target_id is None:
+                                continue
+                            network_client.send_car_handoff(
+                                target_id,
+                                exit_info["edge"],
+                                exit_info["speed"],
+                                exit_info["color"],
+                                exit_info["body"],
+                            )
+                else:
+                    for mod in direction_modules:
+                        mod.drain_exits()
+
+                # --- Incoming car handoffs: spawn cars sent from neighbours ---
+                if network_client is not None:
+                    for handoff in network_client.drain_handoffs():
+                        route = _HANDOFF_ROUTES.get(handoff.get("edge"))
+                        if route is None:
+                            continue
+                        _, recv_attr = route
+                        target_mod = _MODULE_BY_NAME.get(recv_attr)
+                        if target_mod is None:
+                            continue
+                        target_mod.inject_car(
+                            handoff.get("speed"),
+                            handoff.get("color"),
+                            handoff.get("body"),
+                        )
+
                 # Advance time
                 global_time += frametime_sec
 
@@ -164,18 +258,51 @@ def main(argv=None):
                     },
                     "queues": queues,
                     "cars_visible": len(all_cars),
+                    "cars": all_cars,
                 })
                 snapshot = network_client.get_snapshot()
                 gui.set_network_status({
                     "junction_id": args.junction_id,
+                    "grid_position": [args.grid_x, args.grid_y],
                     "status": snapshot["status"],
                     "last_error": snapshot["last_error"],
                     "peer_count": snapshot["peer_count"],
+                    "grid": snapshot.get("grid", {}),
                 })
                 last_network_update = current_wall_time
 
+            # Build peer list from the latest grid snapshot so each window renders
+            # the whole connected city, not just its own junction.
+            peers = None
+            own_label = args.junction_id if network_client is not None else None
+            if network_client is not None:
+                grid = network_client.get_snapshot().get("grid", {})
+                peers = []
+                for jid, info in grid.items():
+                    if jid == args.junction_id:
+                        continue
+                    gp = info.get("grid_position") or [0, 0]
+                    if len(gp) < 2:
+                        continue
+                    payload = info.get("payload") or {}
+                    lights_dict = payload.get("lights") or {}
+                    peer_lights = [
+                        lights_dict.get("west", "red"),
+                        lights_dict.get("east", "red"),
+                        lights_dict.get("south", "red"),
+                        lights_dict.get("north", "red"),
+                    ]
+                    peers.append({
+                        "dx": int(gp[0]) - args.grid_x,
+                        "dy": int(gp[1]) - args.grid_y,
+                        "lights": peer_lights,
+                        "cars": payload.get("cars") or [],
+                        "label": jid,
+                    })
+
             # Draw the junction with current camera, zoom and street light colour.
-            draw_scene(renderer, camera_x, camera_y, zoom, street_light_state, all_cars)
+            draw_scene(renderer, camera_x, camera_y, zoom, street_light_state, all_cars,
+                       peers=peers, own_label=own_label, junction_spacing=JUNCTION_GRID_SPACING)
 
             # Draw GUI overlay on top
             gui.draw_gui(renderer)
