@@ -7,11 +7,15 @@ from src.render import create_window, create_junction_renderer, update_camera_fr
 from src.light_logic import change_street_light_colour, set_light_timings, update_dynamic_timings, set_manual_override, clear_manual_override
 from src.cars import north, east, south, west
 from src import gui
+from src.setup_gui import run_setup_screen
 from src.network import TrafficNetworkClient
+from src.traffic_server import TrafficServer
 import sdl3
 import ctypes
 import math
 import random
+import socket
+import threading
 import time
 
 SPAWN_INTERVAL = 3.0
@@ -41,6 +45,51 @@ _SPAWN_FEEDER = {
 }
 
 
+def _probe_traffic_server(host, port, timeout=0.4):
+    """Return True if something accepts a TCP connection on host:port."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _ensure_traffic_server(host, port):
+    """If no server is reachable at host:port, start one in this process.
+
+    The auto-started server binds to 0.0.0.0 so peers anywhere on the LAN can
+    reach it, while this process's own client still connects to the user-typed
+    host (typically 127.0.0.1 or the host machine's LAN IP).
+    Returns True if we started a server, False if one was already running, or
+    None if the bind failed (e.g. port held by another non-traffic-server).
+    """
+    if _probe_traffic_server(host, port):
+        return False
+
+    server = TrafficServer("0.0.0.0", port)
+    bind_error = []
+
+    def _serve():
+        try:
+            server.serve_forever()
+        except OSError as exc:
+            bind_error.append(exc)
+
+    thread = threading.Thread(target=_serve, daemon=True, name="auto-traffic-server")
+    thread.start()
+
+    # Wait briefly for the listen socket to come up.
+    for _ in range(60):
+        if bind_error:
+            print(f"Auto-start of traffic server failed: {bind_error[0]}")
+            return None
+        if _probe_traffic_server(host, port, timeout=0.2):
+            print(f"Auto-started traffic server on 0.0.0.0:{port}")
+            return True
+        time.sleep(0.05)
+    return True
+
+
 def _find_neighbour(grid_snapshot, self_id, target_gx, target_gy):
     for jid, info in grid_snapshot.items():
         if jid == self_id:
@@ -61,6 +110,7 @@ def parse_args(argv=None):
     parser.add_argument("--junction-id", default="junction-1", help="Unique ID for this simulated junction.")
     parser.add_argument("--grid-x", type=int, default=0, help="X position of this junction in the virtual city grid.")
     parser.add_argument("--grid-y", type=int, default=0, help="Y position of this junction in the virtual city grid.")
+    parser.add_argument("--skip-setup", action="store_true", help="Skip the pre-launch setup screen and use the CLI flags directly.")
     return parser.parse_args(argv)
 
 
@@ -68,6 +118,41 @@ def main(argv=None):
     args = parse_args(argv)
     window_dimensions, window, renderer = create_window()
     window_width, window_height = window_dimensions
+
+    # Show the pre-simulation setup screen so the user can pick offline/LAN
+    # mode and their slot in the 4x4 city grid. CLI flags seed the defaults
+    # and --skip-setup bypasses the screen entirely.
+    if args.skip_setup:
+        settings = {
+            "network": args.network,
+            "server_host": args.server_host,
+            "server_port": args.server_port,
+            "junction_id": args.junction_id,
+            "grid_x": args.grid_x,
+            "grid_y": args.grid_y,
+        }
+    else:
+        settings = run_setup_screen(window, renderer, window_dimensions, initial={
+            "network_enabled": args.network,
+            "server_host": args.server_host,
+            "server_port": args.server_port,
+            "junction_id": args.junction_id,
+            "grid_x": args.grid_x,
+            "grid_y": args.grid_y,
+        })
+        if settings is None:
+            import sdl3 as _sdl3
+            _sdl3.SDL_DestroyRenderer(renderer)
+            _sdl3.SDL_DestroyWindow(window)
+            _sdl3.SDL_Quit()
+            return
+
+    args.network = settings["network"]
+    args.server_host = settings["server_host"]
+    args.server_port = settings["server_port"]
+    args.junction_id = settings["junction_id"]
+    args.grid_x = settings["grid_x"]
+    args.grid_y = settings["grid_y"]
 
     # Create the drawing function for the junction with all methods and attributes saved for it to access
     draw_scene = create_junction_renderer(window_dimensions)
@@ -98,6 +183,9 @@ def main(argv=None):
 
     network_client = None
     if args.network:
+        # If no traffic server is reachable on the chosen host:port, host one
+        # in this process so the first LAN junction to launch acts as the hub.
+        _ensure_traffic_server(args.server_host, args.server_port)
         network_client = TrafficNetworkClient(
             args.junction_id,
             host=args.server_host,

@@ -96,8 +96,14 @@ class TrafficNetworkClient:
                     self._read_available_messages()
                     time.sleep(0.02)
             except OSError as exc:
-                self._set_status("disconnected", str(exc))
+                # Once the server has rejected us (e.g. slot taken) we stop
+                # the retry loop entirely — reconnecting would just be
+                # rejected again forever.
+                if self._status != "rejected":
+                    self._set_status("disconnected", str(exc))
                 self._close_socket()
+                if self._status == "rejected":
+                    return
                 time.sleep(1.0)
 
     def _connect(self):
@@ -140,6 +146,11 @@ class TrafficNetworkClient:
                     if message.get("to_junction") == self.junction_id:
                         with self._lock:
                             self._handoff_inbox.append(message)
+                elif msg_type == "register_rejected":
+                    reason = message.get("reason", "registration rejected")
+                    self._set_status("rejected", reason)
+                    self._running = False
+                    return
 
     def _send(self, message):
         if self._sock is None:

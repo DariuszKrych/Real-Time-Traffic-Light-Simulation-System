@@ -8,7 +8,11 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+build/*
+# Track the scripts/assets needed to build a release, but not their output.
+!build/build_linux.sh
+!build/build_windows.bat
+!build/icon.png
 develop-eggs/
 dist/
 downloads/

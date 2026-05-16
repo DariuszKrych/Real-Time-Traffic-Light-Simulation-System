@@ -42,7 +42,15 @@ class TrafficServer:
                     message_type = message.get("type")
 
                     if message_type == "register":
-                        junction_id = self._register_client(client_sock, message, address)
+                        new_id, reject_reason = self._register_client(client_sock, message, address)
+                        if reject_reason is not None:
+                            self._send_to(client_sock, {
+                                "type": "register_rejected",
+                                "reason": reject_reason,
+                            })
+                            print(f"Rejected registration from {address[0]}:{address[1]}: {reject_reason}")
+                            return
+                        junction_id = new_id
                         print(f"Registered junction {junction_id} from {address[0]}:{address[1]}")
                         self._broadcast_grid_state()
                     elif message_type == "junction_update":
@@ -50,6 +58,19 @@ class TrafficServer:
                         self._broadcast_grid_state()
                     elif message_type == "car_handoff":
                         self._relay_car_handoff(message)
+                    elif message_type == "query":
+                        # One-shot read used by the setup GUI to find out which
+                        # grid slots are already taken before the client
+                        # registers. Reply with the current grid_state and
+                        # close the connection (no register happened).
+                        with self._lock:
+                            snapshot = {
+                                "type": "grid_state",
+                                "server_time": time.time(),
+                                "junctions": dict(self._junctions),
+                            }
+                        self._send_to(client_sock, snapshot)
+                        return
             except (OSError, json.JSONDecodeError) as exc:
                 print(f"Client {address[0]}:{address[1]} disconnected: {exc}")
             finally:
@@ -65,7 +86,25 @@ class TrafficServer:
     def _register_client(self, client_sock, message, address):
         junction_id = str(message.get("junction_id") or f"{address[0]}:{address[1]}")
         grid_position = message.get("grid_position", [0, 0])
+        gx = grid_position[0] if len(grid_position) >= 1 else 0
+        gy = grid_position[1] if len(grid_position) >= 2 else 0
         with self._lock:
+            # Reject if a *different*, still-connected junction already owns
+            # this grid slot. Disconnected junctions free up their slot, and
+            # the same junction re-registering at its old slot is allowed.
+            for other_id, info in self._junctions.items():
+                if other_id == junction_id:
+                    continue
+                if not info.get("connected", False):
+                    continue
+                other_gp = info.get("grid_position") or [None, None]
+                if (len(other_gp) >= 2
+                        and other_gp[0] == gx
+                        and other_gp[1] == gy):
+                    return None, (
+                        f"Grid slot ({gx},{gy}) is already taken by "
+                        f"junction '{other_id}'."
+                    )
             self._clients[junction_id] = client_sock
             existing_payload = self._junctions.get(junction_id, {}).get("payload", {})
             self._junctions[junction_id] = {
@@ -75,7 +114,7 @@ class TrafficServer:
                 "connected": True,
                 "last_seen": time.time(),
             }
-        return junction_id
+        return junction_id, None
 
     def _update_junction(self, client_sock, message, address, current_junction_id):
         junction_id = str(message.get("junction_id") or current_junction_id or f"{address[0]}:{address[1]}")
@@ -91,6 +130,14 @@ class TrafficServer:
                 "last_seen": time.time(),
             }
         return junction_id
+
+    def _send_to(self, client_sock, message):
+        data = (json.dumps(message, separators=(",", ":")) + "\n").encode("utf-8")
+        try:
+            with self._send_lock:
+                client_sock.sendall(data)
+        except OSError:
+            pass
 
     def _relay_car_handoff(self, message):
         target_id = message.get("to_junction")
